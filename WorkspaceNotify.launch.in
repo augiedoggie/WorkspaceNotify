@@ -1,0 +1,13 @@
+
+job x-vnd.cpr.WorkspaceNotify {
+	launch %APPSDIR%/WorkspaceNotify -r
+	require x-vnd.be-tskb
+	on initial_volumes_mounted
+	no_safemode
+	legacy
+
+	or {
+		setting ~/config/settings/WorkspaceNotify auto_run
+		not file_exsts ~/config/settings/WorkspaceNotify
+	}
+}
