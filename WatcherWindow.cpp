@@ -1,5 +1,8 @@
-#include "WatcherWindow.h"
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-FileCopyrightText: 2023 Chris Roberts
 
+
+#include "WatcherWindow.h"
 
 #include <Bitmap.h>
 #include <Button.h>

@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-FileCopyrightText: 2023 Chris Roberts
+
+
 #include <Window.h>
 
 
