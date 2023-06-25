@@ -6,7 +6,9 @@
 
 
 class BCheckBox;
+class BColorControl;
 class BMenuField;
+class BRadioButton;
 class BSpinner;
 class BTextControl;
 
@@ -30,6 +32,11 @@ private:
 	BSpinner*		fFontSizeSpinner;
 	BCheckBox*		fShowTextCheckBox;
 	BCheckBox*		fAutoRunCheckBox;
+	BColorControl*	fColorControl;
+	BRadioButton*	fForegroundButton;
+	BRadioButton*	fBackgroundButton;
+	BView*			fBackgroundPreview;
+	BView*			fForegroundPreview;
 	rgb_color		fBackgroundColor;
 	rgb_color		fForegroundColor;
 };

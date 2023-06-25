@@ -7,6 +7,7 @@
 #include <Bitmap.h>
 #include <Button.h>
 #include <CheckBox.h>
+#include <ColorControl.h>
 #include <File.h>
 #include <FindDirectory.h>
 #include <LayoutBuilder.h>
@@ -14,7 +15,10 @@
 #include <Notification.h>
 #include <Path.h>
 #include <PopUpMenu.h>
+#include <RadioButton.h>
+#include <SeparatorView.h>
 #include <Spinner.h>
+#include <StringView.h>
 
 
 const char* kAppTitle = "WorkspaceNotify";
@@ -23,6 +27,8 @@ const char* kKeyTimeout = "timeout";
 const char* kKeyShowText = "show_text";
 const char* kKeyFontSize = "font_size";
 const char* kKeyAutoRun = "auto_run";
+const char* kKeyForeground = "foreground";
+const char* kKeyBackground = "background";
 
 const float kDefaultTimeout = 1.5;
 const float kDefaultFontSize = 40.0;
@@ -31,6 +37,16 @@ const bool kDefaultAutoRun = true;
 const rgb_color kDefaultForeground = {0, 0, 0};
 const rgb_color kDefaultBackground = {0, 185, 230};
 
+enum {
+	kActionBackground = 'BGND',
+	kActionForeground = 'FGND',
+	kActionColor = 'COLR',
+	kActionDefaults = 'DFLT',
+	kActionRun = 'RRUN',
+	kActionTest = 'TEST',
+	kActionTimeout = 'TMUT'
+};
+
 
 WatcherWindow::WatcherWindow(BRect frame)
 	:
@@ -38,21 +54,31 @@ WatcherWindow::WatcherWindow(BRect frame)
 	fBackgroundColor(kDefaultBackground),
 	fForegroundColor(kDefaultForeground)
 {
-	BButton* runButton = new BButton("Hide Window", new BMessage('RRUN'));
+	BButton* runButton = new BButton("Hide Window", new BMessage(kActionRun));
 
 	BPopUpMenu* timeoutMenu = new BPopUpMenu("TimeoutMenu");
 	BLayoutBuilder::Menu<> builder = BLayoutBuilder::Menu<>(timeoutMenu);
 	for (double x = 0; x <= 5; x+=0.5) {
 		BString string;
 		string.SetToFormat("%.1f", x);
-		builder.AddItem(string, 'TMUT');
+		builder.AddItem(string, kActionTimeout);
 	}
+
+	fForegroundPreview = new BView("ForegroundColorPreview", B_WILL_DRAW);
+	fForegroundPreview->SetExplicitMaxSize(BSize(16, 16));
+
+	fBackgroundPreview = new BView("BackgroundColorPreview", B_WILL_DRAW);
+	fBackgroundPreview->SetExplicitMaxSize(BSize(16, 16));
+
+	fBackgroundButton = new BRadioButton("Background", new BMessage(kActionBackground));
+	fBackgroundButton->SetValue(B_CONTROL_ON);
 
 	// clang-format off
 	BLayoutBuilder::Group<>(this, B_VERTICAL, B_USE_WINDOW_SPACING)
 		.SetInsets(B_USE_WINDOW_INSETS)
-		.AddGroup(B_HORIZONTAL)
+		.AddGroup(B_HORIZONTAL, 3.0)
 			.Add(fTimeoutField = new BMenuField("Timeout:", timeoutMenu))
+			.Add(new BStringView("SecondsView", "seconds"))
 			.AddGlue(2.0)
 		.End()
 		.Add(fShowTextCheckBox = new BCheckBox("Show text", NULL))
@@ -60,12 +86,19 @@ WatcherWindow::WatcherWindow(BRect frame)
 			.Add(fFontSizeSpinner = new BSpinner("FontSpinner", "Font size:", NULL))
 			.AddGlue(2.0)
 		.End()
-		//TODO foreground color
-		//TODO background color
+		.AddGroup(B_HORIZONTAL)
+			.Add(fForegroundPreview)
+			.Add(fForegroundButton = new BRadioButton("Foreground", new BMessage(kActionForeground)))
+			.Add(new BSeparatorView(B_VERTICAL))
+			.Add(fBackgroundPreview)
+			.Add(fBackgroundButton)
+			.AddGlue()
+		.End()
+		.Add(fColorControl = new BColorControl(B_ORIGIN, B_CELLS_32x8, 8.0, "ColorControl", new BMessage(kActionColor), true))
 		.Add(fAutoRunCheckBox = new BCheckBox("Launch when Haiku boots"))
 		.AddGroup(B_HORIZONTAL, B_USE_HALF_ITEM_SPACING)
-			.Add(new BButton("Show Test", new BMessage('TEST')))
-			.Add(new BButton("Defaults", new BMessage('DFLT')))
+			.Add(new BButton("Show Test", new BMessage(kActionTest)))
+			.Add(new BButton("Defaults", new BMessage(kActionDefaults)))
 			.AddGlue()
 			.Add(new BButton("Quit", new BMessage(B_QUIT_REQUESTED)))
 			.Add(runButton)
@@ -97,7 +130,7 @@ WatcherWindow::MessageReceived(BMessage *message) {
 	#endif
 
 	switch (message->what) {
-		case 'DFLT':
+		case kActionDefaults:
 		{
 			BMenu* menu = fTimeoutField->Menu();
 			BString bufString;
@@ -111,13 +144,43 @@ WatcherWindow::MessageReceived(BMessage *message) {
 			fShowTextCheckBox->SetValue(kDefaultShowText);
 			fAutoRunCheckBox->SetValue(kDefaultAutoRun);
 
+			fBackgroundColor = kDefaultBackground;
+			fBackgroundPreview->SetViewColor(fBackgroundColor);
+			fBackgroundPreview->Invalidate();
+
+			fForegroundColor = kDefaultForeground;
+			fForegroundPreview->SetViewColor(fForegroundColor);
+			fForegroundPreview->Invalidate();
+
+			if (fBackgroundButton->Value() == B_CONTROL_ON)
+				fColorControl->SetValue(fBackgroundColor);
+			else
+				fColorControl->SetValue(fForegroundColor);
+
 			_SaveSettings();
 		}
 			break;
-		case 'TEST':
+		case kActionTest:
 			WorkspaceActivated(current_workspace(), true);
 			break;
-		case 'RRUN':
+		case kActionForeground:
+			fColorControl->SetValue(fForegroundColor);
+			break;
+		case kActionBackground:
+			fColorControl->SetValue(fBackgroundColor);
+			break;
+		case kActionColor:
+			if (fBackgroundButton->Value() == B_CONTROL_ON) {
+				fBackgroundColor = fColorControl->ValueAsColor();
+				fBackgroundPreview->SetViewColor(fBackgroundColor);
+				fBackgroundPreview->Invalidate();
+			} else {
+				fForegroundColor = fColorControl->ValueAsColor();
+				fForegroundPreview->SetViewColor(fForegroundColor);
+				fForegroundPreview->Invalidate();
+			}
+			break;
+		case kActionRun:
 			if (Lock()) {
 				Hide();
 				Unlock();
@@ -192,6 +255,13 @@ WatcherWindow::_LoadSettings()
 	bValue = message.GetBool(kKeyAutoRun, kDefaultAutoRun);
 	fAutoRunCheckBox->SetValue(bValue);
 
+	fForegroundColor = message.GetColor(kKeyForeground, kDefaultForeground);
+	fForegroundPreview->SetViewColor(fForegroundColor);
+
+	fBackgroundColor = message.GetColor(kKeyBackground, kDefaultBackground);
+	fBackgroundPreview->SetViewColor(fBackgroundColor);
+	fColorControl->SetValue(fBackgroundColor);
+
 	return B_OK;
 }
 
@@ -219,6 +289,10 @@ WatcherWindow::_SaveSettings()
 	message.AddBool(kKeyShowText, fShowTextCheckBox->Value());
 
 	message.AddBool(kKeyAutoRun, fAutoRunCheckBox->Value());
+
+	message.AddColor(kKeyForeground, fForegroundColor);
+
+	message.AddColor(kKeyBackground, fBackgroundColor);
 
 	return message.Flatten(&prefsFile);
 }
