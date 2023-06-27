@@ -18,6 +18,8 @@ When the app is launched it will display the settings window.
 
 ## Build Instructions
 
+You must have the `jamfile_engine` package installed in order to build.
+
 ```
 ~> cd WorkspaceNotify
 ~/WorkspaceNotify> jam
