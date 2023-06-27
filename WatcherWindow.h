@@ -7,8 +7,8 @@
 
 class BCheckBox;
 class BColorControl;
-class BMenuField;
 class BRadioButton;
+class BSlider;
 class BSpinner;
 class BTextControl;
 
@@ -24,19 +24,22 @@ public:
 	virtual bool	QuitRequested();
 
 private:
-	status_t		_RenderBitmap(int32 workspace, BBitmap& bitmap);
+	status_t		_RenderBitmap(int32 workspace, BBitmap& bitmap, BView* parent = NULL);
 	status_t		_LoadSettings();
 	status_t		_SaveSettings();
+	void			_UpdatePreview();
+	void			_UpdateSliderLabel();
 
-	BMenuField*		fTimeoutField;
+	BSlider*		fTimeoutSlider;
 	BSpinner*		fFontSizeSpinner;
-	BCheckBox*		fShowTextCheckBox;
 	BCheckBox*		fAutoRunCheckBox;
+	BTextControl*	fTitleControl;
 	BColorControl*	fColorControl;
 	BRadioButton*	fForegroundButton;
 	BRadioButton*	fBackgroundButton;
 	BView*			fBackgroundPreview;
 	BView*			fForegroundPreview;
+	BView*			fPreviewView;
 	rgb_color		fBackgroundColor;
 	rgb_color		fForegroundColor;
 };

@@ -5,18 +5,19 @@
 #include "WatcherWindow.h"
 
 #include <Bitmap.h>
+#include <Box.h>
 #include <Button.h>
 #include <CheckBox.h>
 #include <ColorControl.h>
 #include <File.h>
 #include <FindDirectory.h>
 #include <LayoutBuilder.h>
-#include <MenuField.h>
 #include <Notification.h>
 #include <Path.h>
 #include <PopUpMenu.h>
 #include <RadioButton.h>
 #include <SeparatorView.h>
+#include <Slider.h>
 #include <Spinner.h>
 #include <StringView.h>
 
@@ -24,7 +25,7 @@
 const char* kAppTitle = "WorkspaceNotify";
 
 const char* kKeyTimeout = "timeout";
-const char* kKeyShowText = "show_text";
+const char* kKeyTitle = "title";
 const char* kKeyFontSize = "font_size";
 const char* kKeyAutoRun = "auto_run";
 const char* kKeyForeground = "foreground";
@@ -32,16 +33,17 @@ const char* kKeyBackground = "background";
 
 const float kDefaultTimeout = 1.5;
 const float kDefaultFontSize = 40.0;
-const bool kDefaultShowText = true;
 const bool kDefaultAutoRun = true;
 const rgb_color kDefaultForeground = {0, 0, 0};
 const rgb_color kDefaultBackground = {0, 185, 230};
+const char* kDefaultTitle = "Workspace %workspace%";
 
 enum {
 	kActionBackground = 'BGND',
 	kActionForeground = 'FGND',
 	kActionColor = 'COLR',
 	kActionDefaults = 'DFLT',
+	kActionFont = 'FONT',
 	kActionRun = 'RRUN',
 	kActionTest = 'TEST',
 	kActionTimeout = 'TMUT'
@@ -56,46 +58,89 @@ WatcherWindow::WatcherWindow(BRect frame)
 {
 	BButton* runButton = new BButton("Hide Window", new BMessage(kActionRun));
 
-	BPopUpMenu* timeoutMenu = new BPopUpMenu("TimeoutMenu");
-	BLayoutBuilder::Menu<> builder = BLayoutBuilder::Menu<>(timeoutMenu);
-	for (double x = 0; x <= 5; x+=0.5) {
-		BString string;
-		string.SetToFormat("%.1f", x);
-		builder.AddItem(string, kActionTimeout);
-	}
-
 	fForegroundPreview = new BView("ForegroundColorPreview", B_WILL_DRAW);
-	fForegroundPreview->SetExplicitMaxSize(BSize(16, 16));
+	fForegroundPreview->SetExplicitMaxSize(BSize(15, 15));
 
 	fBackgroundPreview = new BView("BackgroundColorPreview", B_WILL_DRAW);
-	fBackgroundPreview->SetExplicitMaxSize(BSize(16, 16));
+	fBackgroundPreview->SetExplicitMaxSize(BSize(15, 15));
 
 	fBackgroundButton = new BRadioButton("Background", new BMessage(kActionBackground));
 	fBackgroundButton->SetValue(B_CONTROL_ON);
 
+	fPreviewView = new BView("IconPreviewView", B_WILL_DRAW);
+	fPreviewView->SetExplicitSize(BSize(31, 31));
+	fPreviewView->SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
+
 	// clang-format off
+	BGroupLayout* iconLayout = BLayoutBuilder::Group<>(B_HORIZONTAL)
+		.SetInsets(B_USE_DEFAULT_SPACING)
+		.Add(fPreviewView)
+		.Add(new BSeparatorView(B_VERTICAL))
+		.AddGroup(B_VERTICAL)
+			.AddGroup(B_HORIZONTAL)
+				.Add(fFontSizeSpinner = new BSpinner("FontSpinner", "Font Size:", new BMessage(kActionFont)))
+				.AddGlue(2.0)
+			.End()
+			// .Add(new BSeparatorView(B_HORIZONTAL))
+			.AddGroup(B_HORIZONTAL)
+				.Add(fForegroundPreview)
+				.Add(fForegroundButton = new BRadioButton("Foreground", new BMessage(kActionForeground)))
+				.Add(new BSeparatorView(B_VERTICAL))
+				.Add(fBackgroundPreview)
+				.Add(fBackgroundButton)
+				.AddGlue()
+			.End()
+			.Add(fColorControl = new BColorControl(B_ORIGIN, B_CELLS_32x8, 8.0, "ColorControl", new BMessage(kActionColor), true))
+		.End();
+
+	BBox* iconBox = new BBox("IconBBox");
+	iconBox->SetLabel("Notification Icon");
+	iconBox->AddChild(iconLayout->View());
+
+	BStringView* tipView = new BStringView("TitleTipStringView", "%workspace% will be replaced with the current workspace");
+	BFont font;
+	tipView->GetFont(&font);
+	font.SetFace(B_ITALIC_FACE);
+	tipView->SetFont(&font);
+	tipView->SetAlignment(B_ALIGN_CENTER);
+
+	BGroupLayout* textLayout = BLayoutBuilder::Group<>(B_VERTICAL)
+		.SetInsets(B_USE_DEFAULT_SPACING)
+		.Add(fTitleControl = new BTextControl("Title:", "Workspace %workspace%", NULL))
+		.Add(tipView);
+
+	BBox* textBox = new BBox("TextBox");
+	textBox->SetLabel("Notification Text");
+	textBox->AddChild(textLayout->View());
+
+	fTimeoutSlider = new BSlider("TimeoutSlider", "seconds", new BMessage(kActionTimeout), 0, 60, B_HORIZONTAL);
+	fTimeoutSlider->SetLimitLabels("0.0", "30.0");
+	fTimeoutSlider->SetHashMarks(B_HASH_MARKS_BOTTOM);
+	fTimeoutSlider->SetHashMarkCount(31);
+	fTimeoutSlider->SetModificationMessage(new BMessage(kActionTimeout));
+
+	tipView = new BStringView("TimeoutTipStringView", "Setting the timeout to 0.0 will use the system default timing");
+	tipView->GetFont(&font);
+	font.SetFace(B_ITALIC_FACE);
+	tipView->SetFont(&font);
+	tipView->SetAlignment(B_ALIGN_CENTER);
+
+	BGroupLayout* timeoutLayout = BLayoutBuilder::Group<>(B_VERTICAL)
+		.SetInsets(B_USE_DEFAULT_SPACING)
+		.Add(fTimeoutSlider)
+		.Add(tipView);
+
+	BBox* timeoutBox = new BBox("TimeoutBox");
+	timeoutBox->SetLabel("Notification Timeout");
+	timeoutBox->AddChild(timeoutLayout->View());
+
 	BLayoutBuilder::Group<>(this, B_VERTICAL, B_USE_WINDOW_SPACING)
 		.SetInsets(B_USE_WINDOW_INSETS)
-		.AddGroup(B_HORIZONTAL, 3.0)
-			.Add(fTimeoutField = new BMenuField("Timeout:", timeoutMenu))
-			.Add(new BStringView("SecondsView", "seconds"))
-			.AddGlue(2.0)
-		.End()
-		.Add(fShowTextCheckBox = new BCheckBox("Show text", NULL))
-		.AddGroup(B_HORIZONTAL)
-			.Add(fFontSizeSpinner = new BSpinner("FontSpinner", "Font size:", NULL))
-			.AddGlue(2.0)
-		.End()
-		.AddGroup(B_HORIZONTAL)
-			.Add(fForegroundPreview)
-			.Add(fForegroundButton = new BRadioButton("Foreground", new BMessage(kActionForeground)))
-			.Add(new BSeparatorView(B_VERTICAL))
-			.Add(fBackgroundPreview)
-			.Add(fBackgroundButton)
-			.AddGlue()
-		.End()
-		.Add(fColorControl = new BColorControl(B_ORIGIN, B_CELLS_32x8, 8.0, "ColorControl", new BMessage(kActionColor), true))
-		.Add(fAutoRunCheckBox = new BCheckBox("Launch when Haiku boots"))
+		.Add(textBox)
+		.Add(iconBox)
+		.Add(timeoutBox)
+		.Add(fAutoRunCheckBox = new BCheckBox("Start WorkspaceNotify when Haiku boots"))
+		.AddGlue(10.0)
 		.AddGroup(B_HORIZONTAL, B_USE_HALF_ITEM_SPACING)
 			.Add(new BButton("Show Test", new BMessage(kActionTest)))
 			.Add(new BButton("Defaults", new BMessage(kActionDefaults)))
@@ -112,6 +157,8 @@ WatcherWindow::WatcherWindow(BRect frame)
 	runButton->MakeDefault(true);
 
 	_LoadSettings();
+
+	_UpdatePreview();
 }
 
 
@@ -132,16 +179,12 @@ WatcherWindow::MessageReceived(BMessage *message) {
 	switch (message->what) {
 		case kActionDefaults:
 		{
-			BMenu* menu = fTimeoutField->Menu();
-			BString bufString;
-			bufString.SetToFormat("%.1f", kDefaultTimeout);
-			BMenuItem* item = menu->FindItem(bufString);
-			if (item != NULL)
-				item->SetMarked(true);
+			fTimeoutSlider->SetValue(kDefaultTimeout * 2);
+			_UpdateSliderLabel();
 
 			fFontSizeSpinner->SetValue(kDefaultFontSize);
 
-			fShowTextCheckBox->SetValue(kDefaultShowText);
+			fTitleControl->SetText(kDefaultTitle);
 			fAutoRunCheckBox->SetValue(kDefaultAutoRun);
 
 			fBackgroundColor = kDefaultBackground;
@@ -156,6 +199,8 @@ WatcherWindow::MessageReceived(BMessage *message) {
 				fColorControl->SetValue(fBackgroundColor);
 			else
 				fColorControl->SetValue(fForegroundColor);
+
+			_UpdatePreview();
 
 			_SaveSettings();
 		}
@@ -179,6 +224,14 @@ WatcherWindow::MessageReceived(BMessage *message) {
 				fForegroundPreview->SetViewColor(fForegroundColor);
 				fForegroundPreview->Invalidate();
 			}
+
+			_UpdatePreview();
+			break;
+		case kActionFont:
+			_UpdatePreview();
+			break;
+		case kActionTimeout:
+			_UpdateSliderLabel();
 			break;
 		case kActionRun:
 			if (Lock()) {
@@ -204,21 +257,20 @@ WatcherWindow::WorkspaceActivated(int32 workspace, bool state)
 		return;
 
 	BNotification notification(B_INFORMATION_NOTIFICATION);
-	if (fShowTextCheckBox->Value()) {
-		BString notString("Workspace ");
+	BString title(fTitleControl->Text());
+	if (title.Length() > 0) {
+		BString notString;
 		notString << workspace + 1;
-		notification.SetTitle(notString);
+		title.ReplaceAll("%workspace%", notString);
+		notification.SetTitle(title);
 	}
-	notification.SetMessageID("WorkspaceNotify");
+	notification.SetMessageID(kAppTitle);
 
 	BBitmap* bitmap = new BBitmap(BRect(0, 0, 31, 31), B_RGBA32, true);
 	if (_RenderBitmap(workspace, *bitmap) == B_OK)
 		notification.SetIcon(bitmap);
 
-	float timeout = 0.0;
-	BMenuItem* item = fTimeoutField->Menu()->FindMarked();
-	if (item != NULL)
-		notification.Send(atof(item->Label())*1000.0*1000.0);
+	notification.Send(fTimeoutSlider->Value()/2.0*1000.0*1000.0);
 
 	delete bitmap;
 }
@@ -239,20 +291,15 @@ WatcherWindow::_LoadSettings()
 		message.Unflatten(&prefsFile);
 
 	float floatValue = message.GetFloat(kKeyTimeout, kDefaultTimeout);
-	BString timeoutString;
-	timeoutString.SetToFormat("%.1f", floatValue);
-	BMenu* menu = fTimeoutField->Menu();
-	BMenuItem* item = menu->FindItem(timeoutString);
-	if (item != NULL)
-		item->SetMarked(true);
+	fTimeoutSlider->SetValue(floatValue * 2);
+	_UpdateSliderLabel();
 
 	floatValue = message.GetFloat(kKeyFontSize, kDefaultFontSize);
 	fFontSizeSpinner->SetValue(floatValue);
 
-	bool bValue = message.GetBool(kKeyShowText, kDefaultShowText);
-	fShowTextCheckBox->SetValue(bValue);
+	fTitleControl->SetText(message.GetString(kKeyTitle, kDefaultTitle));
 
-	bValue = message.GetBool(kKeyAutoRun, kDefaultAutoRun);
+	bool bValue = message.GetBool(kKeyAutoRun, kDefaultAutoRun);
 	fAutoRunCheckBox->SetValue(bValue);
 
 	fForegroundColor = message.GetColor(kKeyForeground, kDefaultForeground);
@@ -281,12 +328,11 @@ WatcherWindow::_SaveSettings()
 
 	BMessage message;
 
-	BMenuItem* item = fTimeoutField->Menu()->FindMarked();
-	message.AddFloat(kKeyTimeout, atof(item->Label()));
+	message.AddFloat(kKeyTimeout, fTimeoutSlider->Value() / 2.0);
 
 	message.AddFloat(kKeyFontSize, fFontSizeSpinner->Value());
 
-	message.AddBool(kKeyShowText, fShowTextCheckBox->Value());
+	message.AddString(kKeyTitle, fTitleControl->Text());
 
 	message.AddBool(kKeyAutoRun, fAutoRunCheckBox->Value());
 
@@ -298,8 +344,28 @@ WatcherWindow::_SaveSettings()
 }
 
 
+void
+WatcherWindow::_UpdateSliderLabel()
+{
+	BString label;
+	label.SetToFormat("%.1f seconds", fTimeoutSlider->Value() / 2.0);
+	fTimeoutSlider->SetLabel(label);
+}
+
+
+void
+WatcherWindow::_UpdatePreview()
+{
+	BBitmap* bitmap = new BBitmap(BRect(0, 0, 31, 31), B_RGBA32, true);
+	if (_RenderBitmap(2, *bitmap, fPreviewView) == B_OK)
+		fPreviewView->SetViewBitmap(bitmap);
+
+	delete bitmap;
+}
+
+
 status_t
-WatcherWindow::_RenderBitmap(int32 workspace, BBitmap& bitmap)
+WatcherWindow::_RenderBitmap(int32 workspace, BBitmap& bitmap, BView* parent)
 {
 	if (workspace > 31 || workspace < 0)
 		return B_ERROR;
@@ -316,9 +382,13 @@ WatcherWindow::_RenderBitmap(int32 workspace, BBitmap& bitmap)
 	else
 		view->SetFontSize(fFontSizeSpinner->Value() * 0.65);
 
-	// clear the view
-	view->SetHighColor(B_TRANSPARENT_32_BIT);
-	view->FillRect(view->Bounds());
+	if (parent == NULL)
+		// clear the view
+		view->SetHighColor(B_TRANSPARENT_32_BIT);
+	else
+		view->SetHighColor(parent->ViewColor());
+
+		view->FillRect(view->Bounds());
 
 	view->SetHighColor(fBackgroundColor);
 	view->FillRoundRect(view->Bounds(), 8, 8);
