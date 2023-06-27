@@ -106,11 +106,11 @@ WatcherWindow::WatcherWindow(BRect frame)
 
 	BGroupLayout* textLayout = BLayoutBuilder::Group<>(B_VERTICAL)
 		.SetInsets(B_USE_DEFAULT_SPACING)
-		.Add(fTitleControl = new BTextControl("Title:", "Workspace %workspace%", NULL))
+		.Add(fTitleControl = new BTextControl("", "Workspace %workspace%", NULL))
 		.Add(tipView);
 
 	BBox* textBox = new BBox("TextBox");
-	textBox->SetLabel("Notification Text");
+	textBox->SetLabel("Notification Title");
 	textBox->AddChild(textLayout->View());
 
 	fTimeoutSlider = new BSlider("TimeoutSlider", "seconds", new BMessage(kActionTimeout), 0, 60, B_HORIZONTAL);
