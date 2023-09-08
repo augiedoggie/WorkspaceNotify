@@ -388,7 +388,7 @@ WatcherWindow::_RenderBitmap(int32 workspace, BBitmap& bitmap, BView* parent)
 	else
 		view->SetHighColor(parent->ViewColor());
 
-		view->FillRect(view->Bounds());
+	view->FillRect(view->Bounds());
 
 	view->SetHighColor(fBackgroundColor);
 	view->FillRoundRect(view->Bounds(), 8, 8);
