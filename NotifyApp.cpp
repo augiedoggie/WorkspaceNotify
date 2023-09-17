@@ -4,10 +4,9 @@
 
 #include "WatcherWindow.h"
 
-#include <Application.h>
 #include <Alert.h>
+#include <Application.h>
 #include <iostream>
-
 
 
 class NotifyApp : public BApplication {
@@ -21,10 +20,10 @@ public:
 	virtual void
 	MessageReceived(BMessage* message)
 	{
-		#ifdef DEBUG
+#ifdef DEBUG
 		std::cout << "NotifyApp::MessageReceived()" << std::endl;
 		message->PrintToStream();
-		#endif
+#endif
 
 		switch (message->what) {
 			case B_SILENT_RELAUNCH:
@@ -36,8 +35,8 @@ public:
 					window->Show();
 					window->Unlock();
 				}
-			}
 				break;
+			}
 			default:
 				BApplication::MessageReceived(message);
 		}
@@ -52,7 +51,7 @@ public:
 		else
 			frame.Set(200, 200, 450, 450);
 
-		WatcherWindow *window = new WatcherWindow(frame);
+		WatcherWindow* window = new WatcherWindow(frame);
 		window->Lock();
 
 		if (!fAutoRun)

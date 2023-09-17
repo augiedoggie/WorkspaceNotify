@@ -163,18 +163,20 @@ WatcherWindow::WatcherWindow(BRect frame)
 
 
 bool
-WatcherWindow::QuitRequested() {
+WatcherWindow::QuitRequested()
+{
 	_SaveSettings();
 	return BWindow::QuitRequested();
 }
 
 
 void
-WatcherWindow::MessageReceived(BMessage *message) {
-	#ifdef DEBUG
+WatcherWindow::MessageReceived(BMessage* message)
+{
+#ifdef DEBUG
 	std::cout << "WatcherWindow::MessageReceived()" << std::endl;
 	message->PrintToStream();
-	#endif
+#endif
 
 	switch (message->what) {
 		case kActionDefaults:
@@ -203,8 +205,8 @@ WatcherWindow::MessageReceived(BMessage *message) {
 			_UpdatePreview();
 
 			_SaveSettings();
-		}
 			break;
+		}
 		case kActionTest:
 			WorkspaceActivated(current_workspace(), true);
 			break;
@@ -249,9 +251,9 @@ WatcherWindow::MessageReceived(BMessage *message) {
 void
 WatcherWindow::WorkspaceActivated(int32 workspace, bool state)
 {
-	#ifdef DEBUG
+#ifdef DEBUG
 	std::cout << "WorkspaceActivated: " << workspace << " " << state << std::endl;
-	#endif
+#endif
 
 	if (!state)
 		return;
@@ -270,7 +272,7 @@ WatcherWindow::WorkspaceActivated(int32 workspace, bool state)
 	if (_RenderBitmap(workspace, *bitmap) == B_OK)
 		notification.SetIcon(bitmap);
 
-	notification.Send(fTimeoutSlider->Value()/2.0*1000.0*1000.0);
+	notification.Send(fTimeoutSlider->Value() / 2.0 * 1000.0 * 1000.0);
 
 	delete bitmap;
 }
